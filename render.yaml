@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: clipforge-ai-api
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: clipforge-data
+      mountPath: /var/data
+      sizeGB: 10
+    envVars:
+      - key: CLIPFORGE_DATA_DIR
+        value: /var/data
+      - key: APP_ENCRYPTION_KEY
+        sync: false
+      - key: CLIPFORGE_ACCESS_TOKEN
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: HIGGSFIELD_API_KEY
+        sync: false

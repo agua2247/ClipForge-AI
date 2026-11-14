@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClipForge AI — aguagamer2247</title><link rel="stylesheet" href="style.css"></head>
+<body><div class="shell">
+<aside><div class="brand"><img src="logo.svg"><div>CLIPFORGE <b>AI</b><small>CREATE • AUTOMATE • GROW</small></div></div>
+<nav><a class="active">⌂　Dashboard</a><a href="#studio">✂　Content Studio</a><a href="#higgsfield">✦　Higgsfield AI</a><a href="#brand">◈　Branding</a><a href="#schedule">▦　Scheduler</a><a href="#settings">⚙　Settings</a></nav>
+<div class="account"><span class="dot"></span> aguagamer2247 <small>Channel profile</small></div></aside>
+<main><header><div><div class="eyebrow">YOUR CREATOR WORKSPACE</div><h1>Welcome back, <span>aguagamer2247</span></h1><p>Turn your best gaming moments into Shorts.</p></div><div class="pill" id="apiStatus">● Checking backend…</div></header>
+<section class="stats"><article><small>CLIPS CREATED</small><strong id="clipCount">—</strong><em>From this workspace</em></article><article><small>JOBS IN QUEUE</small><strong id="jobCount">—</strong><em>Local backend</em></article><article><small>CHANNEL</small><strong>aguagamer2247</strong><em>YouTube connection pending</em></article><article><small>BRAND THEME</small><strong>Black + Purple</strong><em>Custom logo enabled</em></article></section>
+<section class="grid">
+<article class="panel wide" id="studio"><div class="panelhead"><div><h2>Content Studio</h2><p>Upload a video you own or have permission to edit.</p></div><span class="tag">LOCAL PROCESSING</span></div>
+<form id="uploadForm"><label class="drop" for="videoFile"><div class="uploadicon">↑</div><b>Choose a source video</b><span id="fileName">MP4, MOV, MKV — max 2 GB</span><input id="videoFile" type="file" accept="video/*" required></label>
+<div class="formrow"><label>Number of clips<select id="clipAmount"><option>3</option><option selected>5</option><option>8</option><option>10</option></select></label><label>Clip length<select id="clipLength"><option value="20">~20 seconds</option><option value="30" selected>~30 seconds</option><option value="45">~45 seconds</option><option value="60">~60 seconds</option></select></label></div>
+<button class="primary" type="submit">⚡ Create Shorts</button><div class="message" id="uploadMessage"></div></form></article>
+<article class="panel wide" id="higgsfield">
+<div class="panelhead"><div><h2>Higgsfield AI Studio</h2><p>Generate new footage and enhance existing clips through the official Developer API.</p></div><span class="tag muted" id="higgsStatus">NOT CONNECTED</span></div>
+<div class="feature"><span>✦</span><div><b>Secure API connection</b><small>Your API credential is sent to the local backend and encrypted at rest. It is never exposed to extension JavaScript after saving.</small></div></div>
+<div class="formrow"><label class="full">Higgsfield API credential<input id="higgsApiKey" type="password" autocomplete="off" placeholder="Paste the complete key copied from Higgsfield Console"></label></div>
+<div class="actions"><button class="primary" id="higgsConnect">Connect & verify key</button><button class="secondary" id="higgsDisconnect" type="button">Disconnect</button><a class="textlink" href="https://console.higgsfield.ai" target="_blank" rel="noreferrer">Open Higgsfield Console ↗</a></div>
+<div class="higgs-columns">
+<form id="higgsGenerateForm" class="subpanel"><h3>Generate video</h3>
+<label>Model<select id="higgsModel"><option value="kling-video/v4.0/text-to-video">Kling 4.0 — Text to Video</option></select></label>
+<label>Prompt<textarea id="higgsPrompt" rows="3" maxlength="5000" placeholder="Describe the gaming visual, camera movement, lighting and action…" required></textarea></label>
+<div class="formrow"><label>Duration<select id="higgsDuration"><option>5</option><option selected>10</option><option>15</option><option>20</option><option>30</option></select></label><label>Resolution<select id="higgsResolution"><option>720p</option><option selected>1080p</option></select></label><label>Aspect ratio<select id="higgsRatio"><option>9:16</option><option>16:9</option><option>1:1</option><option>21:9</option></select></label></div>
+<button class="primary" type="submit">✦ Generate with Higgsfield</button><p class="hint">Generation uses your Higgsfield API balance. Check the model's current price before submitting.</p></form>
+<form id="higgsEnhanceForm" class="subpanel"><h3>Enhance existing video</h3>
+<label>Source video<input id="higgsVideo" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-matroska" required></label>
+<label>Enhancement instructions<textarea id="higgsEnhancePrompt" rows="3" maxlength="5000" placeholder="Improve visual quality, add cinematic lighting, preserve the original action…" required></textarea></label>
+<label>Processing mode<select id="higgsMode"><option value="standard">Standard</option><option value="pro">Pro</option></select></label>
+<button class="primary" type="submit">✦ Enhance with Higgsfield</button><p class="hint">The source is uploaded to Higgsfield using a signed upload URL, then submitted to its video-edit model.</p></form>
+</div>
+<div class="panelhead historyhead"><div><h3>Higgsfield generation history</h3><p>Track, cancel and open completed results.</p></div><button class="link" id="higgsRefresh">Refresh ↻</button></div>
+<div id="higgsHistory" class="jobs"><p class="empty">Connect Higgsfield to view requests.</p></div>
+<div id="higgsMessage" class="message" role="status"></div>
+</article>
+<article class="panel" id="schedule"><div class="panelhead"><div><h2>Recent jobs</h2><button class="link" id="refresh">Refresh ↻</button></div></div><div id="jobs" class="jobs"><p class="empty">No jobs yet. Upload a video to get started.</p></div><div class="panelhead historyhead"><div><h3>Ready-to-publish clips</h3><p>Uploads default to Private until you choose otherwise.</p></div></div><div id="clipList" class="jobs"><p class="empty">No clips created yet.</p></div></article>
+<article class="panel" id="brand"><div class="panelhead"><div><h2>Your Brand</h2><p>Applied to the workspace.</p></div><span class="tag">ACTIVE</span></div><div class="brandrow"><img src="logo.svg"><div><b>aguagamer2247</b><small>Black & neon purple</small><small>ClipForge AI custom logo</small></div></div></article>
+<article class="panel" id="settings"><div class="panelhead"><div><h2>YouTube publishing</h2><p>Authorize the channel and upload finished clips.</p></div><span class="tag muted" id="youtubeStatus">NOT CONNECTED</span></div><div class="feature">▶<div><b>Secure Google authorization</b><small>ClipForge requests YouTube upload and read-only channel access. OAuth tokens are encrypted on the backend and never stored in extension files.</small></div></div><div class="actions"><button class="primary" id="youtubeConnect" type="button">Connect YouTube channel</button><button class="secondary" id="youtubeDisconnect" type="button">Disconnect</button></div><div id="youtubeChannel" class="message">Checking YouTube connection…</div><div id="youtubeMessage" class="message" role="status"></div><label class="backend-url-label">Backend service URL<input id="backendUrl" type="url" placeholder="https://your-service.onrender.com"></label><button class="secondary" id="saveBackendUrl" type="button">Save backend URL</button><label class="backend-url-label">Private ClipForge access token<input id="accessToken" type="password" autocomplete="off" placeholder="Paste the token from Render Environment"></label><button class="secondary" id="saveAccessToken" type="button">Save access token</button><p class="hint">Uploads default to Private. You can change the privacy setting when uploading a clip.</p></article>
+</section><footer>CLIPFORGE AI <span>Built for aguagamer2247</span></footer></main></div><script src="dashboard.js"></script></body></html>

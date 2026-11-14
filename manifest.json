@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "ClipForge AI — aguagamer2247",
+  "version": "0.1.0",
+  "description": "Create and organize branded YouTube Shorts with ClipForge AI.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["http://127.0.0.1:8787/*", "http://localhost:8787/*", "https://*.onrender.com/*"],
+  "action": {
+    "default_title": "Open ClipForge AI",
+    "default_popup": "popup.html"
+  },
+  "background": {"service_worker": "background.js"}
+}
