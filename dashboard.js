@@ -1,4 +1,5 @@
-let API=(localStorage.getItem("clipforgeApiBase")||"http://127.0.0.1:8787").replace(/\/$/,"");
+const DEFAULT_API_BASE = "https://clipforge-ai-api.onrender.com";
+let API=(localStorage.getItem("clipforgeApiBase")||DEFAULT_API_BASE).replace(/\/$/,"");
 const $=id=>document.getElementById(id);
 async function api(path,opts={}){const headers=new Headers(opts.headers||{});const token=localStorage.getItem("clipforgeAccessToken")||"";if(token)headers.set("Authorization",`Bearer ${token}`);const r=await fetch(API+path,{...opts,headers});if(!r.ok){let d={};try{d=await r.json()}catch{}throw new Error(d.detail||`Backend error ${r.status}`)}return r.json()}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -6,7 +7,7 @@ async function refresh(){try{const d=await api("/api/dashboard");$("apiStatus").
     const clips=d.clips||[];
     $("clipList").innerHTML=clips.length?clips.slice(0,12).map(c=>`<div class="job"><div><b>${escapeHtml(c.title||"ClipForge Short")}</b><br><small>${escapeHtml(c.duration)} sec · ${escapeHtml(c.filename)}</small></div><div class="clip-actions"><button class="link" data-youtube-upload="${escapeHtml(c.id)}">Upload to YouTube</button></div></div>`).join(""):'<p class="empty">No clips created yet.</p>';
     $("clipList").querySelectorAll("[data-youtube-upload]").forEach(b=>b.onclick=async()=>{if(!confirm("Upload this clip to your connected YouTube channel as Private?"))return;b.disabled=true;try{const result=await api(`/api/youtube/upload/${b.dataset.youtubeUpload}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({privacy_status:"private"})});b.textContent="Uploaded";const a=document.createElement("a");a.href=result.url;a.target="_blank";a.rel="noreferrer";a.textContent="Open YouTube video";a.className="textlink";b.parentElement.appendChild(a)}catch(err){alert(err.message);b.disabled=false}});
-  }catch(e){$("apiStatus").textContent="● Backend offline";$("apiStatus").style.color="#ff8a8a";$("jobs").innerHTML='<p class="empty">Start the local backend to load jobs.</p>'}}
+  }catch(e){$("apiStatus").textContent="● Backend offline";$("apiStatus").style.color="#ff8a8a";$("jobs").innerHTML='<p class="empty">Check your Render backend URL and private access token in Settings.</p>'}}
 $("videoFile").addEventListener("change",e=>$("fileName").textContent=e.target.files[0]?.name||"MP4, MOV, MKV — max 2 GB");
 $("uploadForm").addEventListener("submit",async e=>{e.preventDefault();const f=$("videoFile").files[0];if(!f)return;const msg=$("uploadMessage");msg.textContent="Uploading source video…";const fd=new FormData();fd.append("file",f);fd.append("clip_count",$("clipAmount").value);fd.append("clip_length",$("clipLength").value);try{const d=await api("/api/jobs",{method:"POST",body:fd});msg.textContent=`Job queued. ${d.message}`;refresh();setTimeout(refresh,5000);setTimeout(refresh,15000)}catch(err){msg.textContent=err.message}});
 $("refresh").onclick=refresh;
