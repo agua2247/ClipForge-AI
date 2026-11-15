@@ -1,4 +1,6 @@
 import os, uuid, sqlite3, subprocess, shutil, json, re, asyncio, time, random, mimetypes, secrets, importlib.util
+import logging
+from googleapiclient.errors import HttpError
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
 from dotenv import load_dotenv
@@ -531,6 +533,7 @@ async def youtube_callback(request: Request):
         return HTMLResponse("<h2>Missing Google authorization code</h2><p>Return to ClipForge AI and try again.</p>", status_code=400)
     if not _youtube_configured():
         return HTMLResponse("<h2>ClipForge AI is not configured</h2><p>Google OAuth environment variables are missing on the backend.</p>", status_code=503)
+    stage = "token_exchange"
     try:
         try:
             async with httpx.AsyncClient(timeout=30) as client:
@@ -566,16 +569,41 @@ async def youtube_callback(request: Request):
                             token_uri=GOOGLE_TOKEN_URL, client_id=os.environ["GOOGLE_CLIENT_ID"].strip(),
                             client_secret=os.environ["GOOGLE_CLIENT_SECRET"].strip(), scopes=YOUTUBE_SCOPES,
                             expiry=datetime.now(timezone.utc)+timedelta(seconds=int(token_data.get("expires_in",3600))))
+        stage = "channel_lookup"
         channel = await run_in_threadpool(_youtube_channel, creds)
+        stage = "token_encryption"
         encrypted = _fernet().encrypt(creds.to_json().encode())
+        stage = "credential_storage"
         with db() as c:
             c.execute("INSERT INTO integrations(name,secret,updated_at) VALUES('youtube_oauth',?,?) "
                       "ON CONFLICT(name) DO UPDATE SET secret=excluded.secret,updated_at=excluded.updated_at",
                       (encrypted, datetime.now(timezone.utc).isoformat()))
         title = str(channel.get("title", "YouTube channel")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         return HTMLResponse(f"<html><body style='background:#100b19;color:#f5edff;font:16px Arial;padding:40px'><h1 style='color:#bd7aff'>ClipForge AI connected!</h1><p>You connected the YouTube channel <b>{title}</b>.</p><p>You can close this tab and return to your ClipForge dashboard.</p><script>setTimeout(()=>{{try{{window.close()}}catch(e){{}}}},1800)</script></body></html>")
-    except Exception:
-        return HTMLResponse("<h2>Could not finish YouTube connection</h2><p>Check that the Google API is enabled, the OAuth redirect URI matches exactly, and the encryption key is configured. Return to ClipForge and try again.</p>", status_code=500)
+    except HTTPException as exc:
+        # HTTPException messages in this flow are authored by the backend, not Google.
+        return HTMLResponse(
+            "<h2>YouTube connection not completed</h2><p>" + str(exc.detail) + "</p>",
+            status_code=exc.status_code,
+        )
+    except HttpError as exc:
+        status = int(exc.resp.status)
+        if status == 403:
+            reason = "Google denied the YouTube channel lookup. Enable YouTube Data API v3 in your Google Cloud project and check API access and quota."
+        elif status == 401:
+            reason = "Google rejected the YouTube API authorization. Reconnect and approve the requested YouTube permissions."
+        else:
+            reason = f"YouTube Data API returned HTTP {status}. Check the Google Cloud API settings and try again."
+        logging.getLogger("clipforge.oauth").warning("YouTube API failure: HTTP %s at %s", status, stage)
+        return HTMLResponse("<h2>YouTube API connection failed</h2><p>" + reason + "</p>", status_code=502)
+    except Exception as exc:
+        # Log only the exception type and stage. Never log codes, tokens, URLs, or provider response bodies.
+        logging.getLogger("clipforge.oauth").warning("YouTube OAuth failure: %s at %s", type(exc).__name__, stage)
+        return HTMLResponse(
+            "<h2>Could not finish YouTube connection</h2><p>Backend failure during " + stage.replace("_", " ") +
+            ". Review Render application logs for the sanitized error category. Then start a NEW Google authorization.</p>",
+            status_code=500,
+        )
 
 @app.delete("/api/youtube/connect")
 def youtube_disconnect():
