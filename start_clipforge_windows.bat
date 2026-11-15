@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0backend"
+cd /d "%~dp0"
 where py >nul 2>nul
 if errorlevel 1 (
   echo Python 3.10 or newer is required.
@@ -22,7 +22,7 @@ findstr /R /C:"^APP_ENCRYPTION_KEY=..*" .env >nul
 if errorlevel 1 (
   for /f %%K in ('python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"') do set APPKEY=%%K
   powershell -NoProfile -Command "$p='.env'; $s=Get-Content $p -Raw; if ($s -match '(?m)^APP_ENCRYPTION_KEY=.*$') { $s=[regex]::Replace($s,'(?m)^APP_ENCRYPTION_KEY=.*$','APP_ENCRYPTION_KEY=%APPKEY%') } else { $s += \"`r`nAPP_ENCRYPTION_KEY=%APPKEY%`r`n\" }; Set-Content -NoNewline $p $s"
-  echo Generated an encryption key in backend\.env. Back up this file securely.
+  echo Generated an encryption key in .env. Back up this file securely.
 )
 echo Starting ClipForge AI at http://127.0.0.1:8787
 python -m uvicorn main:app --host 127.0.0.1 --port 8787
