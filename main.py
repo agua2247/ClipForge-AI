@@ -565,10 +565,11 @@ async def youtube_callback(request: Request):
         if not token_data.get("access_token"):
             return HTMLResponse("<h2>Google did not return an access token</h2><p>Try connecting again.</p>", status_code=400)
         from google.oauth2.credentials import Credentials
+        # google-auth compares expiry against naive UTC; aware datetimes raise TypeError.
         creds = Credentials(token=token_data.get("access_token"), refresh_token=token_data.get("refresh_token"),
                             token_uri=GOOGLE_TOKEN_URL, client_id=os.environ["GOOGLE_CLIENT_ID"].strip(),
                             client_secret=os.environ["GOOGLE_CLIENT_SECRET"].strip(), scopes=YOUTUBE_SCOPES,
-                            expiry=datetime.now(timezone.utc)+timedelta(seconds=int(token_data.get("expires_in",3600))))
+                            expiry=datetime.now(timezone.utc).replace(tzinfo=None)+timedelta(seconds=int(token_data.get("expires_in",3600))))
         stage = "channel_lookup"
         channel = await run_in_threadpool(_youtube_channel, creds)
         stage = "token_encryption"
