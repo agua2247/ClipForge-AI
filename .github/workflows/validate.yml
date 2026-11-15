@@ -1,0 +1,27 @@
+name: Validate ClipForge source
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check Python syntax
+        run: python -m py_compile main.py
+      - name: Check extension JavaScript syntax
+        run: |
+          node --check background.js
+          node --check dashboard.js
+          node --check popup.js
+      - name: Check manifest JSON
+        run: python -m json.tool manifest.json > /dev/null
+      - name: Check Bash launcher
+        run: bash -n start_clipforge_linux.sh

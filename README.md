@@ -24,12 +24,11 @@ Black-and-purple creator workspace with local video clipping and a server-side H
 - Linux / ChromeOS Linux: run `./start_clipforge_linux.sh` from the extracted project folder. On ChromeOS Linux, install FFmpeg first with `sudo apt update && sudo apt install -y ffmpeg`.
 - Windows: double-click `start_clipforge_windows.bat`.
 
-The launcher creates a Python virtual environment, installs dependencies, creates `backend/.env`, generates an encryption key if needed, and starts the local backend. Keep the terminal open while using the extension.
+The launcher creates a Python virtual environment, installs dependencies, creates `.env`, generates an encryption key if needed, and starts the local backend. Keep the terminal open while using the extension.
 
 ## Manual backend setup
 
 ```bash
-cd backend
 python -m venv .venv
 # Windows: .venv\\Scripts\\activate
 # macOS/Linux: source .venv/bin/activate
@@ -43,7 +42,7 @@ Generate an encryption key:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Put the generated value in `APP_ENCRYPTION_KEY` in `backend/.env`. Keep this key private and back it up: the website-stored Higgsfield credential cannot be decrypted without it.
+Put the generated value in `APP_ENCRYPTION_KEY` in `.env`. Keep this key private and back it up: the website-stored Higgsfield credential cannot be decrypted without it.
 
 Run the backend:
 
@@ -58,8 +57,8 @@ The API is available at `http://127.0.0.1:8787`; interactive API docs are at `/d
 1. Open `chrome://extensions`.
 2. Enable Developer mode.
 3. Select **Load unpacked**.
-4. Choose the `extension` directory.
-5. Keep the local backend running.
+4. Choose the extracted repository root folder (it contains `manifest.json`).
+5. The extension defaults to the hosted Render backend. For local development, change the Backend service URL to `http://127.0.0.1:8787` and enable localhost host permission in the extension manifest.
 
 Open the extension dashboard and navigate to **Higgsfield AI Studio**.
 
@@ -111,7 +110,7 @@ For managed hosting, set `HIGGSFIELD_API_KEY` in the server's secret manager ins
    - `GOOGLE_REDIRECT_URI` = the exact callback URL above
 6. In Google Cloud, enable **YouTube Data API v3**. If the OAuth app is in Testing mode, add the Google account that owns/manages the channel under Test users.
 7. Redeploy the Render service after setting variables.
-8. Reload the unpacked Chrome extension. In ClipForge Settings, paste the Render service URL and the `CLIPFORGE_ACCESS_TOKEN`, then save both.
+8. Reload the unpacked Chrome extension. In ClipForge Settings, verify the Render URL, paste your private `CLIPFORGE_ACCESS_TOKEN`, then save it. Use **Check backend configuration** to diagnose missing server settings.
 9. Click **Connect YouTube channel**, select the correct Google account, review the requested YouTube permissions, and approve.
 10. Return to the dashboard. The channel name should show as Connected. Finished clips appear under Ready-to-publish clips. Click **Upload to YouTube**; uploads default to Private.
 
@@ -148,3 +147,12 @@ The API credential must never be put in Chrome extension files, browser local st
 - Automated scheduled publishing is not implemented yet; YouTube OAuth and manual clip upload are implemented.
 - This integration implements two documented model workflows, not every model in the Higgsfield catalog.
 - Live generation has not been tested because no user's Higgsfield API credentials were supplied.
+
+## Troubleshooting and feature boundaries
+
+- The extension defaults to `https://clipforge-ai-api.onrender.com`. Do not put secrets in GitHub or screenshots.
+- In Settings, click **Check backend configuration** for safe readiness indicators. A readiness check confirms variables exist, not that credentials are accepted by third-party providers.
+- If Google sign-in reaches ClipForge but token exchange fails, the callback now displays a limited standardized Google error category (`invalid_client`, `invalid_grant`, etc.) without exposing tokens. Confirm the OAuth Web application Client ID and matching secret in Render, verify the exact redirect URI, and start a fresh authorization. Never reuse an OAuth callback URL.
+- If Higgsfield fails to connect, verify `APP_ENCRYPTION_KEY` in Render and check the API key's developer access. Generation and enhancement incur provider charges; no live paid call is performed by the repo's tests.
+- Upload/clip rendering and manual private YouTube upload exist. Fully automated recurring scheduling, automatic publishing, and unattended source discovery are **not implemented** in the current MVP. The schedules endpoint saves records but does not execute them.
+- Existing video URLs and uploaded files must be owned or licensed for use.

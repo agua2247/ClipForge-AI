@@ -211,11 +211,11 @@ HIGGSFIELD_MODELS = {
 def _fernet():
     key = os.getenv("APP_ENCRYPTION_KEY", "").strip()
     if not key:
-        raise HTTPException(503, "APP_ENCRYPTION_KEY is missing. Generate one and add it to backend/.env.")
+        raise HTTPException(503, "APP_ENCRYPTION_KEY is missing. Set it in Render > clipforge-ai-api > Environment, then redeploy.")
     try:
         return Fernet(key.encode())
     except Exception:
-        raise HTTPException(500, "APP_ENCRYPTION_KEY is invalid. Generate a valid Fernet key.")
+        raise HTTPException(503, "APP_ENCRYPTION_KEY must be a valid Fernet key. Correct it in Render Environment.")
 
 def _higgsfield_credential():
     # Environment credentials take precedence for managed deployments.
@@ -259,13 +259,18 @@ async def higgsfield_connect(payload: dict):
     # Validate credentials with a harmless status request before storing them.
     # The API's status endpoint requires a request ID, so validate by requesting
     # an intentionally nonexistent ID; auth failures are distinguishable from 404.
-    async with httpx.AsyncClient(timeout=20) as client:
-        response = await client.get(f"{HIGGSFIELD_API}/requests/00000000-0000-0000-0000-000000000000/status",
-                                    headers=_hf_headers(credential))
-    if response.status_code == 401:
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.get(f"{HIGGSFIELD_API}/requests/00000000-0000-0000-0000-000000000000/status",
+                                        headers=_hf_headers(credential))
+    except httpx.TimeoutException:
+        raise HTTPException(504, "Higgsfield did not respond within 20 seconds. Try again later.")
+    except httpx.RequestError:
+        raise HTTPException(502, "Could not reach the Higgsfield API. Check your Render outbound connection.")
+    if response.status_code in (401, 403):
         raise HTTPException(401, "Higgsfield rejected this credential. Check the API key and secret copied from the console.")
     if response.status_code not in (200, 404):
-        raise HTTPException(502, f"Could not validate Higgsfield credentials (HTTP {response.status_code}).")
+        raise HTTPException(502, f"Higgsfield credential verification returned HTTP {response.status_code}. Check the API account and developer access.")
     encrypted = cipher.encrypt(credential.encode())
     with db() as c:
         c.execute("INSERT INTO integrations(name,secret,updated_at) VALUES('higgsfield',?,?) "
@@ -527,15 +532,32 @@ async def youtube_callback(request: Request):
     if not _youtube_configured():
         return HTMLResponse("<h2>ClipForge AI is not configured</h2><p>Google OAuth environment variables are missing on the backend.</p>", status_code=503)
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(GOOGLE_TOKEN_URL, data={
-                "code": code, "client_id": os.environ["GOOGLE_CLIENT_ID"].strip(),
-                "client_secret": os.environ["GOOGLE_CLIENT_SECRET"].strip(),
-                "redirect_uri": os.environ["GOOGLE_REDIRECT_URI"].strip(),
-                "grant_type": "authorization_code",
-            })
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(GOOGLE_TOKEN_URL, data={
+                    "code": code, "client_id": os.environ["GOOGLE_CLIENT_ID"].strip(),
+                    "client_secret": os.environ["GOOGLE_CLIENT_SECRET"].strip(),
+                    "redirect_uri": os.environ["GOOGLE_REDIRECT_URI"].strip(),
+                    "grant_type": "authorization_code",
+                })
+        except httpx.RequestError:
+            return HTMLResponse("<h2>Google is temporarily unreachable</h2><p>Check backend connectivity and start a new authorization attempt.</p>", status_code=502)
         if response.status_code >= 400:
-            return HTMLResponse("<h2>Google token exchange failed</h2><p>Check the OAuth redirect URI and client credentials in Render and Google Cloud.</p>", status_code=400)
+            # Display only Google's standardized error code, never its raw response.
+            # Authorization codes, refresh tokens and provider descriptions remain private.
+            try:
+                provider_error = response.json().get("error", "")
+            except (ValueError, AttributeError):
+                provider_error = ""
+            guidance = {
+                "invalid_client": "Check that GOOGLE_CLIENT_SECRET matches the Web application OAuth Client ID in Google Cloud.",
+                "invalid_grant": "The code expired, was already used, or the redirect URI differs. Start a NEW connection and verify the exact redirect URI.",
+                "redirect_uri_mismatch": "Check the authorized redirect URI in Google Cloud and GOOGLE_REDIRECT_URI in Render.",
+                "unauthorized_client": "Check that Google OAuth is configured as a Web application and that the project permits this access.",
+            }
+            hint = guidance.get(provider_error, "Check the client credentials and redirect URI in Render and Google Cloud.")
+            label = provider_error if provider_error in guidance else "token_exchange_error"
+            return HTMLResponse(f"<h2>Google token exchange failed: {label}</h2><p>{hint}</p>", status_code=400)
         token_data = response.json()
         if not token_data.get("access_token"):
             return HTMLResponse("<h2>Google did not return an access token</h2><p>Try connecting again.</p>", status_code=400)
@@ -597,6 +619,24 @@ async def youtube_upload_clip(clip_id: str, payload: dict):
     return {"uploaded": True, "video_id": result.get("id"),
             "url": f"https://www.youtube.com/watch?v={result.get('id')}", "privacy_status": privacy}
 
+
+@app.get("/api/config-status")
+def config_status():
+    """Safe troubleshooting signals; protected by the private instance token middleware."""
+    fernet_valid = False
+    try:
+        fernet_valid = bool(_fernet())
+    except HTTPException:
+        pass
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    redirect = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
+    return {
+        "encryption_ready": fernet_valid,
+        "google_oauth_ready": _youtube_configured(),
+        "google_client_id_format_ok": client_id.endswith(".apps.googleusercontent.com"),
+        "redirect_uri_matches_render": redirect == "https://clipforge-ai-api.onrender.com/api/youtube/callback",
+        "higgsfield_environment_key_present": bool(os.getenv("HIGGSFIELD_API_KEY", "").strip()),
+    }
 
 @app.get("/api/health")
 def health():

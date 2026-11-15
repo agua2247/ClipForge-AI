@@ -1,13 +1,26 @@
 const DEFAULT_API_BASE = "https://clipforge-ai-api.onrender.com";
 let API=(localStorage.getItem("clipforgeApiBase")||DEFAULT_API_BASE).replace(/\/$/,"");
 const $=id=>document.getElementById(id);
-async function api(path,opts={}){const headers=new Headers(opts.headers||{});const token=localStorage.getItem("clipforgeAccessToken")||"";if(token)headers.set("Authorization",`Bearer ${token}`);const r=await fetch(API+path,{...opts,headers});if(!r.ok){let d={};try{d=await r.json()}catch{}throw new Error(d.detail||`Backend error ${r.status}`)}return r.json()}
+async function api(path,opts={}){
+  const headers=new Headers(opts.headers||{});
+  const token=localStorage.getItem("clipforgeAccessToken")||"";
+  if(token)headers.set("Authorization",`Bearer ${token}`);
+  let r;
+  try{r=await fetch(API+path,{...opts,headers})}
+  catch(err){throw new Error(`Cannot reach ${API}. Check your internet connection, Render deployment, and backend URL in Settings.`)}
+  if(!r.ok){
+    let d={};try{d=await r.json()}catch{}
+    const detail=typeof d.detail==="string"?d.detail:`Backend error ${r.status}`;
+    throw new Error(detail);
+  }
+  return r.json();
+}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 async function refresh(){try{const d=await api("/api/dashboard");$("apiStatus").textContent="● Backend online";$("apiStatus").style.color="#54e69b";$("clipCount").textContent=d.clips_created;$("jobCount").textContent=d.jobs.filter(j=>["queued","transcribing","rendering"].includes(j.status)).length;$("jobs").innerHTML=d.jobs.length?d.jobs.slice(0,8).map(j=>`<div class="job"><div><b>${escapeHtml(j.source_name)}</b><br><small>${escapeHtml(j.message||"")} · ${escapeHtml(j.created_at)}</small></div><span class="status">${escapeHtml(j.status)}</span></div>`).join(""):'<p class="empty">No jobs yet. Upload a video to get started.</p>';
     const clips=d.clips||[];
     $("clipList").innerHTML=clips.length?clips.slice(0,12).map(c=>`<div class="job"><div><b>${escapeHtml(c.title||"ClipForge Short")}</b><br><small>${escapeHtml(c.duration)} sec · ${escapeHtml(c.filename)}</small></div><div class="clip-actions"><button class="link" data-youtube-upload="${escapeHtml(c.id)}">Upload to YouTube</button></div></div>`).join(""):'<p class="empty">No clips created yet.</p>';
     $("clipList").querySelectorAll("[data-youtube-upload]").forEach(b=>b.onclick=async()=>{if(!confirm("Upload this clip to your connected YouTube channel as Private?"))return;b.disabled=true;try{const result=await api(`/api/youtube/upload/${b.dataset.youtubeUpload}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({privacy_status:"private"})});b.textContent="Uploaded";const a=document.createElement("a");a.href=result.url;a.target="_blank";a.rel="noreferrer";a.textContent="Open YouTube video";a.className="textlink";b.parentElement.appendChild(a)}catch(err){alert(err.message);b.disabled=false}});
-  }catch(e){$("apiStatus").textContent="● Backend offline";$("apiStatus").style.color="#ff8a8a";$("jobs").innerHTML='<p class="empty">Check your Render backend URL and private access token in Settings.</p>'}}
+  }catch(e){$("apiStatus").textContent="● Backend offline";$("apiStatus").style.color="#ff8a8a";$("jobs").textContent="Connection issue: "+e.message}}
 $("videoFile").addEventListener("change",e=>$("fileName").textContent=e.target.files[0]?.name||"MP4, MOV, MKV — max 2 GB");
 $("uploadForm").addEventListener("submit",async e=>{e.preventDefault();const f=$("videoFile").files[0];if(!f)return;const msg=$("uploadMessage");msg.textContent="Uploading source video…";const fd=new FormData();fd.append("file",f);fd.append("clip_count",$("clipAmount").value);fd.append("clip_length",$("clipLength").value);try{const d=await api("/api/jobs",{method:"POST",body:fd});msg.textContent=`Job queued. ${d.message}`;refresh();setTimeout(refresh,5000);setTimeout(refresh,15000)}catch(err){msg.textContent=err.message}});
 $("refresh").onclick=refresh;
@@ -102,3 +115,21 @@ refreshHiggs().then(async()=>{
     h.requests.filter(r=>!hfTerminal.has(String(r.status||"").toLowerCase())).forEach(r=>pollHiggs(r.id));
   }catch{}
 });
+
+async function checkConfiguration(){
+  const target=$("configStatus");
+  if(!target)return;
+  target.textContent="Checking backend configuration…";
+  try{
+    const d=await api("/api/config-status");
+    const checks=[
+      ["Backend encryption",d.encryption_ready],
+      ["Google OAuth environment variables",d.google_oauth_ready],
+      ["Google Client ID format",d.google_client_id_format_ok],
+      ["Google redirect URI",d.redirect_uri_matches_render],
+      ["Higgsfield server API key",d.higgsfield_environment_key_present],
+    ];
+    target.textContent=checks.map(([name,ok])=>`${ok?"✓":"✗"} ${name}`).join(" | ");
+  }catch(err){target.textContent=err.message}
+}
+$("checkConfiguration")?.addEventListener("click",checkConfiguration);
