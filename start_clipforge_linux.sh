@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-BACKEND="$ROOT/backend"
+BACKEND="$ROOT"
 cd "$BACKEND"
 
 if ! command -v python3 >/dev/null 2>&1; then
@@ -31,7 +31,7 @@ if ! grep -q '^APP_ENCRYPTION_KEY=.' .env; then
   else
     printf '\nAPP_ENCRYPTION_KEY=%s\n' "$KEY" >> .env
   fi
-  echo "Generated a private encryption key in backend/.env. Back up this file securely."
+  echo "Generated a private encryption key in  .env. Back up this file securely."
 fi
 
 echo "Starting ClipForge AI at http://127.0.0.1:8787"
